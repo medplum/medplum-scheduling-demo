@@ -1,23 +1,14 @@
 import { Paper, Tabs } from '@mantine/core';
-import { Filter, Operator, SearchRequest } from '@medplum/core';
-import { MemoizedSearchControl } from '@medplum/react';
+import { useDisclosure } from '@mantine/hooks';
+import { Filter, getReferenceString, Operator, SearchRequest } from '@medplum/core';
+import { Practitioner } from '@medplum/fhirtypes';
+import { SearchControl, useMedplumProfile } from '@medplum/react';
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { CreateAppointment } from '../components/CreateAppointment';
-import { useDisclosure } from '@mantine/hooks';
 
 export function AppointmentsPage(): JSX.Element {
-  const upcomingFilter: Filter = {
-    code: 'date',
-    operator: Operator.STARTS_AFTER,
-    value: new Date().toISOString(),
-  };
-  const pastFilter: Filter = {
-    code: 'date',
-    operator: Operator.ENDS_BEFORE,
-    value: new Date().toISOString(),
-  };
-
+  const profile = useMedplumProfile() as Practitioner;
   const navigate = useNavigate();
   const location = useLocation();
   const [createAppointmentOpened, createAppointmentHandlers] = useDisclosure(false);
@@ -29,11 +20,25 @@ export function AppointmentsPage(): JSX.Element {
     ['past', 'Past'],
   ];
 
+  const upcomingFilter: Filter = {
+    code: 'date',
+    operator: Operator.STARTS_AFTER,
+    value: new Date().toISOString(),
+  };
+  const pastFilter: Filter = {
+    code: 'date',
+    operator: Operator.ENDS_BEFORE,
+    value: new Date().toISOString(),
+  };
+
   // Start the SearchRequest with the appropriate filter depending on the active tab
   const [search, setSearch] = useState<SearchRequest>({
     resourceType: 'Appointment',
     fields: ['patient', 'start', 'end', 'serviceType', '_lastUpdated'],
-    filters: [tab === 'upcoming' ? upcomingFilter : pastFilter],
+    filters: [
+      { code: 'actor', operator: Operator.EQUALS, value: getReferenceString(profile as Practitioner) },
+      tab === 'upcoming' ? upcomingFilter : pastFilter,
+    ],
     sortRules: [
       {
         code: 'date',
@@ -80,7 +85,7 @@ export function AppointmentsPage(): JSX.Element {
           ))}
         </Tabs.List>
       </Tabs>
-      <MemoizedSearchControl
+      <SearchControl
         search={search}
         onClick={(e) => navigate(`/${e.resource.resourceType}/${e.resource.id}`)}
         onAuxClick={(e) => window.open(`/${e.resource.resourceType}/${e.resource.id}`, '_blank')}
